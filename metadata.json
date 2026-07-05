@@ -1,0 +1,6 @@
+{
+  "name": "Zyntexa",
+  "description": "An elegant, modern full-stack e-commerce platform featuring automatic location detection, shopping cart, integrated checkout, and a dedicated administrative panel for real-time price updates, product management, and order approvals.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

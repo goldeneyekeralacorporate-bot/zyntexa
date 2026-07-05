@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Collection: Products - Public read/write to support client-side browsing and initialization seeding
+    match /products/{productId} {
+      allow read, write: if true;
+    }
+
+    // Collection: Orders - Public read/write to support order placement and order management
+    match /orders/{orderId} {
+      allow read, write: if true;
+    }
+
+    // Collection: Users - Public read/write to support customer registration and profile management
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+  }
+}
