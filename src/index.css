@@ -6,6 +6,73 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
+:root {
+  --color-white: #ffffff;
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
+  
+  --color-zinc-50: #fafafa;
+  --color-zinc-100: #f4f4f5;
+  --color-zinc-200: #e4e4e7;
+  --color-zinc-300: #d4d4d8;
+  --color-zinc-400: #a1a1aa;
+  --color-zinc-500: #71717a;
+  --color-zinc-600: #52525b;
+  --color-zinc-700: #3f3f46;
+  --color-zinc-800: #27272a;
+  --color-zinc-900: #18181b;
+  --color-zinc-950: #09090b;
+
+  --theme-transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:root.dark {
+  --color-white: #0f172a;       /* Dark card / dropdown / nav bg */
+  --color-slate-50: #030712;    /* Deep dark app canvas bg */
+  --color-slate-100: #1e293b;   /* Dark border color */
+  --color-slate-200: #334155;   /* Secondary dark border color */
+  --color-slate-300: #475569;   /* Hover border color */
+  --color-slate-400: #94a3b8;   /* Muted text in dark mode */
+  --color-slate-500: #cbd5e1;   /* Secondary body text */
+  --color-slate-600: #e2e8f0;   /* Muted text labels */
+  --color-slate-700: #f1f5f9;   /* Muted text headers */
+  --color-slate-800: #f8fafc;   /* White text */
+  --color-slate-900: #ffffff;   /* Pure white headings */
+  --color-slate-950: #ffffff;
+
+  --color-zinc-50: #030712;
+  --color-zinc-100: #1e293b;
+  --color-zinc-200: #334155;
+  --color-zinc-300: #475569;
+  --color-zinc-400: #94a3b8;
+  --color-zinc-500: #cbd5e1;
+  --color-zinc-600: #e2e8f0;
+  --color-zinc-700: #f1f5f9;
+  --color-zinc-800: #f8fafc;
+  --color-zinc-900: #ffffff;
+  --color-zinc-950: #ffffff;
+}
+
+body {
+  background-color: var(--color-slate-50);
+  color: var(--color-slate-900);
+  transition: var(--theme-transition);
+}
+
+/* Smooth transitions for a luxury brand experience */
+header, main, footer, div, section, article, button, input, textarea, select {
+  transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* Custom fine-grained scrollbars and interactive helpers */
 ::-webkit-scrollbar {
   width: 6px;
@@ -21,14 +88,26 @@
   border-radius: 4px;
 }
 
+:root.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+:root.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
 .glass {
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+:root.dark .glass {
+  background: rgba(15, 23, 42, 0.7);
 }
 
 .glass-dark {
@@ -45,3 +124,40 @@
 .animate-pulse-slow {
   animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* Continuous scrolling announcement banner animations */
+@keyframes marquee-ltr {
+  0% { transform: translate3d(-100%, 0, 0); }
+  100% { transform: translate3d(100%, 0, 0); }
+}
+
+@keyframes marquee-rtl {
+  0% { transform: translate3d(100%, 0, 0); }
+  100% { transform: translate3d(-100%, 0, 0); }
+}
+
+.animate-marquee-ltr-slow {
+  animation: marquee-ltr 28s linear infinite;
+}
+.animate-marquee-ltr-medium {
+  animation: marquee-ltr 18s linear infinite;
+}
+.animate-marquee-ltr-fast {
+  animation: marquee-ltr 10s linear infinite;
+}
+
+.animate-marquee-rtl-slow {
+  animation: marquee-rtl 28s linear infinite;
+}
+.animate-marquee-rtl-medium {
+  animation: marquee-rtl 18s linear infinite;
+}
+.animate-marquee-rtl-fast {
+  animation: marquee-rtl 10s linear infinite;
+}
+
+/* Utility to pause scrolling on hover for readability */
+.hover-pause:hover .marquee-scrollable {
+  animation-play-state: paused;
+}
+

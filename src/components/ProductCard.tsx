@@ -8,15 +8,17 @@ interface ProductCardProps {
   isAdmin: boolean;
   onAddToCart: (product: Product) => void;
   onUpdatePrice: (productId: string, newPrice: number) => Promise<void>;
+  onViewDetails?: (product: Product) => void;
 }
 
-export default function ProductCard({ product, isAdmin, onAddToCart, onUpdatePrice }: ProductCardProps) {
+export default function ProductCard({ product, isAdmin, onAddToCart, onUpdatePrice, onViewDetails }: ProductCardProps) {
   const [isEditingPrice, setIsEditingPrice] = useState(false);
   const [priceInput, setPriceInput] = useState(product.price.toString());
   const [isUpdating, setIsUpdating] = useState(false);
   const [added, setAdded] = useState(false);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     onAddToCart(product);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
@@ -40,7 +42,7 @@ export default function ProductCard({ product, isAdmin, onAddToCart, onUpdatePri
 
   return (
     <div 
-      className="group relative bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-slate-200/60 transition-all duration-300 flex flex-col h-full overflow-hidden"
+      className="group relative bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-slate-200/60 flex flex-col h-full overflow-hidden transition-all duration-300"
       id={`product-card-${product.id}`}
     >
       {/* Badges Overlay */}
@@ -67,7 +69,8 @@ export default function ProductCard({ product, isAdmin, onAddToCart, onUpdatePri
       {isAdmin && (
         <div className="absolute top-3 right-3 z-10">
           <button
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               setPriceInput(product.price.toString());
               setIsEditingPrice(!isEditingPrice);
             }}
@@ -81,7 +84,10 @@ export default function ProductCard({ product, isAdmin, onAddToCart, onUpdatePri
       )}
 
       {/* Image Container */}
-      <div className="relative pt-[100%] bg-slate-50 overflow-hidden">
+      <div 
+        onClick={() => onViewDetails?.(product)}
+        className="relative pt-[100%] bg-slate-50 overflow-hidden cursor-pointer"
+      >
         <img
           src={product.imageUrl}
           alt={product.name}
@@ -93,7 +99,10 @@ export default function ProductCard({ product, isAdmin, onAddToCart, onUpdatePri
 
       {/* Content */}
       <div className="p-5 flex-1 flex flex-col justify-between">
-        <div>
+        <div 
+          onClick={() => onViewDetails?.(product)}
+          className="cursor-pointer group-hover:opacity-95 transition-opacity"
+        >
           {/* Category */}
           <span className="text-[11px] font-bold uppercase text-slate-400 tracking-widest block mb-1">
             {product.category}

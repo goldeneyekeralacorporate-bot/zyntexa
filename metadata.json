@@ -1,6 +1,6 @@
 {
   "name": "Zyntexa",
-  "description": "An elegant, modern full-stack e-commerce platform featuring automatic location detection, shopping cart, integrated checkout, and a dedicated administrative panel for real-time price updates, product management, and order approvals.",
+  "description": "An elegant, modern full-stack e-commerce platform with a dual-viewport workspace featuring an interactive high-end smartphone mockup, Indian metropolitan GPS simulators, integrated iOS-style tab navigation bar, dynamic inline AI Concierge, and an administrative control panel for real-time Firestore database management.",
   "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

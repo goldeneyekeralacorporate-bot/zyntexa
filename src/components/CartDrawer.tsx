@@ -1,5 +1,5 @@
 import { X, Plus, Minus, Trash2, ShoppingBag, Percent } from 'lucide-react';
-import { CartItem } from '../types';
+import { CartItem, StoreSettings } from '../types';
 import { useState } from 'react';
 
 interface CartDrawerProps {
@@ -9,6 +9,7 @@ interface CartDrawerProps {
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
   onProceedToCheckout: (subtotal: number, discount: number, tax: number, total: number, promoApplied: string) => void;
+  settings: StoreSettings;
 }
 
 export default function CartDrawer({
@@ -17,7 +18,8 @@ export default function CartDrawer({
   cartItems,
   onUpdateQuantity,
   onRemoveItem,
-  onProceedToCheckout
+  onProceedToCheckout,
+  settings
 }: CartDrawerProps) {
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState('');
@@ -30,14 +32,21 @@ export default function CartDrawer({
   const discountAmount = Math.round(subtotal * promoDiscount);
   const taxableAmount = subtotal - discountAmount;
   
-  // SGST (9%) + CGST (9%) inside India
-  const cgst = Math.round(taxableAmount * 0.09);
-  const sgst = Math.round(taxableAmount * 0.09);
+  // Dynamic settings
+  const cgstPercent = settings?.cgstPercent !== undefined ? settings.cgstPercent : 9;
+  const sgstPercent = settings?.sgstPercent !== undefined ? settings.sgstPercent : 9;
+  const deliveryCharge = settings?.deliveryCharge !== undefined ? settings.deliveryCharge : 150;
+  const freeShippingThreshold = settings?.freeShippingThreshold !== undefined ? settings.freeShippingThreshold : 4999;
+
+  // SGST + CGST inside India
+  const cgst = Math.round(taxableAmount * (cgstPercent / 100));
+  const sgst = Math.round(taxableAmount * (sgstPercent / 100));
   const tax = cgst + sgst;
   
   // Shipping calculation
-  const shipping = subtotal > 4999 || subtotal === 0 ? 0 : 150;
+  const shipping = subtotal >= freeShippingThreshold || subtotal === 0 ? 0 : deliveryCharge;
   const total = taxableAmount + tax + shipping;
+
 
   const handleApplyPromo = () => {
     setPromoError('');
@@ -221,11 +230,11 @@ export default function CartDrawer({
                 </div>
               )}
               <div className="flex justify-between">
-                <span>CGST (9%)</span>
+                <span>CGST ({cgstPercent}%)</span>
                 <span className="font-mono text-slate-800">₹{cgst.toLocaleString('en-IN')}</span>
               </div>
               <div className="flex justify-between">
-                <span>SGST (9%)</span>
+                <span>SGST ({sgstPercent}%)</span>
                 <span className="font-mono text-slate-800">₹{sgst.toLocaleString('en-IN')}</span>
               </div>
               <div className="flex justify-between">
@@ -237,7 +246,7 @@ export default function CartDrawer({
                 )}
               </div>
               {shipping > 0 && (
-                <p className="text-[9px] text-indigo-500 text-right">Add ₹{(5000 - subtotal).toLocaleString('en-IN')} more for free delivery!</p>
+                <p className="text-[9px] text-indigo-500 text-right">Add ₹{(freeShippingThreshold - subtotal).toLocaleString('en-IN')} more for free delivery!</p>
               )}
               
               <div className="flex justify-between text-sm font-extrabold text-slate-950 pt-2 border-t border-slate-200/60">

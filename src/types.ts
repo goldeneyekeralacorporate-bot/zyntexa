@@ -5,6 +5,7 @@ export type Product = {
   price: number;
   category: string;
   imageUrl: string;
+  images?: string[];
   stock: number;
   featured?: boolean;
   createdAt?: any;
@@ -67,3 +68,26 @@ export type Order = {
     cardNumber?: string;
   };
 };
+
+export type StoreSettings = {
+  cgstPercent: number;
+  sgstPercent: number;
+  deliveryCharge: number;
+  freeShippingThreshold: number;
+  promoBannerActive?: boolean;
+  promoBannerTextActive?: boolean;
+  promoBannerImageActive?: boolean;
+  promoBannerImageOverlayTextActive?: boolean;
+  promoBannerText?: string;
+  promoBannerType?: 'text' | 'image';
+  promoBannerImageUrl?: string;
+  promoBannerLinkUrl?: string;
+  promoBannerTextSize?: 'xs' | 'sm' | 'md' | 'lg';
+  promoBannerTextColor?: string;
+  promoBannerBgColor?: string;
+  promoBannerOverlayOpacity?: number;
+  promoBannerScrollEnabled?: boolean;
+  promoBannerScrollDirection?: 'left-to-right' | 'right-to-left';
+  promoBannerScrollSpeed?: 'slow' | 'medium' | 'fast';
+};
+

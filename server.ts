@@ -89,7 +89,9 @@ app.post("/api/ai/chat", async (req, res) => {
   }
 });
 
-// API: Cashfree Create Live Order Session
+
+
+// API: Cashfree Create Live Order Session (PRODUCTION ONLY)
 app.post("/api/cashfree/create-order", async (req, res) => {
   try {
     const { amount, customerPhone, customerEmail, customerName, orderId } = req.body;
@@ -103,11 +105,7 @@ app.post("/api/cashfree/create-order", async (req, res) => {
       });
     }
 
-    // Determine environment based on client id prefix
-    const isProd = !appId.toUpperCase().startsWith("TEST");
-    const cashfreeUrl = isProd 
-      ? "https://api.cashfree.com/pg/orders" 
-      : "https://sandbox.cashfree.com/pg/orders";
+    const cashfreeUrl = "https://api.cashfree.com/pg/orders";
 
     // Format customerPhone (Must be standard 10 digit number)
     let phone = customerPhone ? customerPhone.replace(/\D/g, "") : "";
@@ -133,7 +131,7 @@ app.post("/api/cashfree/create-order", async (req, res) => {
         customer_name: customerName || "Guest Customer"
       },
       order_meta: {
-        return_url: `${req.headers.origin || "https://ais-dev-z3yinxadonprgw33saydv3-96387776787.asia-southeast1.run.app"}/?order_id={order_id}`
+        return_url: `${req.headers.origin || process.env.APP_URL || "https://ais-dev-z3yinxadonprgw33saydv3-96387776787.asia-southeast1.run.app"}/?order_id={order_id}`
       }
     };
 
@@ -159,7 +157,7 @@ app.post("/api/cashfree/create-order", async (req, res) => {
       paymentSessionId: data.payment_session_id,
       orderId: data.order_id,
       cfOrderId: data.cf_order_id,
-      mode: isProd ? "production" : "sandbox",
+      mode: "production",
       paymentLink: data.payments?.url || null
     });
   } catch (err: any) {
@@ -168,18 +166,18 @@ app.post("/api/cashfree/create-order", async (req, res) => {
   }
 });
 
-// API: Cashfree configuration status check
+// API: Cashfree configuration status check (PRODUCTION ONLY)
 app.get("/api/cashfree/config-status", (req, res) => {
   const appId = process.env.CASHFREE_APP_ID || "";
   const secretKey = process.env.CASHFREE_SECRET_KEY || "";
   res.json({
     configured: appId.length > 0 && secretKey.length > 0,
     appIdMask: appId ? appId.substring(0, 4) + "..." + appId.substring(appId.length > 4 ? appId.length - 2 : appId.length) : "",
-    isTestKey: appId.toUpperCase().startsWith("TEST")
+    mode: "production"
   });
 });
 
-// API: Cashfree Verify Live Order Status
+// API: Cashfree Verify Live Order Status (PRODUCTION ONLY)
 app.get("/api/cashfree/verify-order/:orderId", async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -192,10 +190,7 @@ app.get("/api/cashfree/verify-order/:orderId", async (req, res) => {
       });
     }
 
-    const isProd = !appId.toUpperCase().startsWith("TEST");
-    const cashfreeUrl = isProd 
-      ? `https://api.cashfree.com/pg/orders/${orderId}`
-      : `https://sandbox.cashfree.com/pg/orders/${orderId}`;
+    const cashfreeUrl = `https://api.cashfree.com/pg/orders/${orderId}`;
 
     const response = await fetch(cashfreeUrl, {
       method: "GET",
@@ -223,6 +218,7 @@ app.get("/api/cashfree/verify-order/:orderId", async (req, res) => {
     res.status(500).json({ error: err.message || "Internal server error" });
   }
 });
+
 
 import http from "http";
 import { WebSocketServer, WebSocket } from "ws";

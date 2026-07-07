@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Search, MapPin, User, LogOut, ShieldAlert, Navigation } from 'lucide-react';
-import { UserProfile } from '../types';
+import { ShoppingCart, Search, MapPin, User, LogOut, ShieldAlert, Navigation, Mail, Sun, Moon } from 'lucide-react';
+import { UserProfile, StoreSettings } from '../types';
+import Logo3D from './Logo3D';
 
 interface NavbarProps {
   user: UserProfile | null;
@@ -14,6 +15,13 @@ interface NavbarProps {
   detectedLocation: { city: string; state: string; pincode: string } | null;
   onLocationDetected: (loc: { city: string; state: string; pincode: string; latitude: number; longitude: number }) => void;
   onLoginSuccess: (profile: UserProfile) => void;
+  onOpenOrders?: () => void;
+  ordersCount?: number;
+  onOpenGmailComms?: () => void;
+  onHomeClick?: () => void;
+  isDarkMode: boolean;
+  onToggleDarkMode: () => void;
+  storeSettings?: StoreSettings;
 }
 
 export default function Navbar({
@@ -27,7 +35,14 @@ export default function Navbar({
   onToggleAdminMode,
   detectedLocation,
   onLocationDetected,
-  onLoginSuccess
+  onLoginSuccess,
+  onOpenOrders,
+  ordersCount,
+  onOpenGmailComms,
+  onHomeClick,
+  isDarkMode,
+  onToggleDarkMode,
+  storeSettings
 }: NavbarProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLocating, setIsLocating] = useState(false);
@@ -132,18 +147,38 @@ export default function Navbar({
     }
   }, []);
 
+  const bannerTextSizeClass = (size?: 'xs' | 'sm' | 'md' | 'lg') => {
+    switch (size) {
+      case 'xs': return 'text-[10px] md:text-xs leading-none font-bold';
+      case 'sm': return 'text-xs md:text-[13px] leading-tight font-extrabold';
+      case 'md': return 'text-xs md:text-sm leading-normal font-extrabold';
+      case 'lg': return 'text-sm md:text-base leading-normal font-black';
+      default: return 'text-[10px] md:text-xs leading-none font-bold';
+    }
+  };
+
+  const getScrollClass = () => {
+    if (!storeSettings?.promoBannerScrollEnabled) return '';
+    const dir = storeSettings.promoBannerScrollDirection === 'right-to-left' ? 'rtl' : 'ltr';
+    const speed = storeSettings.promoBannerScrollSpeed || 'slow';
+    return `marquee-scrollable animate-marquee-${dir}-${speed} whitespace-nowrap inline-block`;
+  };
+
   return (
-    <header className="sticky top-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-slate-100 shadow-sm" id="store-header">
+    <>
+      <header className="sticky top-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-slate-100 shadow-sm" id="store-header">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-4">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => { if (isAdminMode) onToggleAdminMode(); }}
-            className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-1.5 cursor-pointer"
+            onClick={() => { 
+              if (isAdminMode) onToggleAdminMode(); 
+              onHomeClick?.();
+            }}
+            className="focus:outline-none"
             id="brand-logo"
           >
-            <span className="bg-indigo-600 text-white px-2.5 py-1 rounded-xl text-lg font-extrabold shadow-sm">Z</span>
-            <span className="font-sans font-bold">Zyntexa</span>
+            <Logo3D />
           </button>
           
           {/* Location Picker */}
@@ -195,7 +230,7 @@ export default function Navbar({
           </button>
 
           {/* Admin Override Toggle Button */}
-          {user && user.role === 'admin' && (
+          {user && user.email?.toLowerCase().trim() === 'goldeneyekeralacorporate@gmail.com' && user.role === 'admin' && (
             <button
               onClick={onToggleAdminMode}
               id="toggle-admin-panel-pill"
@@ -229,6 +264,20 @@ export default function Navbar({
             </button>
           )}
 
+          {/* Global Theme Toggle Button */}
+          <button
+            onClick={onToggleDarkMode}
+            id="theme-toggle-btn"
+            className="p-2.5 rounded-xl text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/30 transition-all cursor-pointer relative flex items-center justify-center active:scale-95 group"
+            title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {isDarkMode ? (
+              <Sun className="w-5 h-5 text-amber-500 group-hover:rotate-45 transition-transform duration-300" />
+            ) : (
+              <Moon className="w-5 h-5 text-slate-600 group-hover:-rotate-12 transition-transform duration-300" />
+            )}
+          </button>
+
           {/* User Profile / Login Panel */}
           {user ? (
             <div className="relative">
@@ -253,20 +302,38 @@ export default function Navbar({
                     <p className="text-[10px] truncate">{user.email || user.phone}</p>
                   </div>
                   
-                  {/* Shortcut for simple testing - allow standard users to trigger admin status manually for evaluation! */}
-                  {user.role !== 'admin' && (
+                  {onOpenOrders && (
                     <button
-                      onClick={async () => {
-                        const upgraded = { ...user, role: 'admin' as const };
-                        // Simulating dynamic upgrade for testing purposes!
-                        onLogout(); 
-                        onLoginSuccess(upgraded);
+                      onClick={() => {
+                        onOpenOrders();
                         setDropdownOpen(false);
                       }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-indigo-50 hover:text-indigo-600 transition-colors flex items-center gap-2 border-b border-slate-50"
+                      id="navbar-my-orders-btn"
+                      className="w-full text-left px-3.5 py-2 hover:bg-indigo-50 hover:text-indigo-600 transition-colors flex items-center justify-between border-b border-slate-50 cursor-pointer text-slate-700"
                     >
-                      <ShieldAlert className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>Become Admin (Test)</span>
+                      <div className="flex items-center gap-2">
+                        <ShoppingCart className="w-3.5 h-3.5" />
+                        <span>My Orders</span>
+                      </div>
+                      {ordersCount !== undefined && ordersCount > 0 && (
+                        <span className="bg-indigo-100 text-indigo-700 text-[10px] font-black px-1.5 py-0.5 rounded-full">
+                          {ordersCount}
+                        </span>
+                      )}
+                    </button>
+                  )}
+
+                  {onOpenGmailComms && (
+                    <button
+                      onClick={() => {
+                        onOpenGmailComms();
+                        setDropdownOpen(false);
+                      }}
+                      id="navbar-gmail-comms-btn"
+                      className="w-full text-left px-3.5 py-2 hover:bg-indigo-50 hover:text-indigo-600 transition-colors flex items-center gap-2 border-b border-slate-50 cursor-pointer text-slate-700"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      <span>Concierge Support Hub</span>
                     </button>
                   )}
 
@@ -276,7 +343,7 @@ export default function Navbar({
                       setDropdownOpen(false);
                     }}
                     id="user-logout-btn"
-                    className="w-full text-left px-3.5 py-2 hover:bg-rose-50 hover:text-rose-600 transition-colors flex items-center gap-2 text-rose-500"
+                    className="w-full text-left px-3.5 py-2 hover:bg-rose-50 hover:text-rose-600 transition-colors flex items-center gap-2 text-rose-500 border-t border-slate-50"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     <span>Sign Out</span>
@@ -296,6 +363,161 @@ export default function Navbar({
           )}
         </div>
       </div>
-    </header>
+      </header>
+      {/* Promotional Announcement Banner - Text Bar */}
+      {storeSettings?.promoBannerTextActive && storeSettings?.promoBannerText && (
+        storeSettings.promoBannerLinkUrl ? (
+          <a 
+            href={storeSettings.promoBannerLinkUrl}
+            id="promo-announcement-banner-link"
+            className="block w-full border-b border-indigo-500/10"
+          >
+            <div 
+              id="promo-announcement-banner"
+              className={`w-full py-2 shadow-xs animate-fade-in relative overflow-hidden group cursor-pointer hover-pause select-none ${
+                storeSettings.promoBannerScrollEnabled ? 'flex items-center' : 'flex items-center justify-center gap-2 text-center px-4'
+              }`}
+              style={{
+                backgroundColor: storeSettings.promoBannerBgColor || '#4f46e5',
+                color: storeSettings.promoBannerTextColor || '#ffffff'
+              }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out pointer-events-none z-20" />
+              {storeSettings.promoBannerScrollEnabled ? (
+                <div className="w-full overflow-hidden relative z-10 py-0.5">
+                  <div className={getScrollClass()}>
+                    <span className={`px-8 inline-block ${bannerTextSizeClass(storeSettings.promoBannerTextSize)}`}>
+                      {storeSettings.promoBannerText} <span className="text-white/40 ml-1.5">✦</span>
+                    </span>
+                    <span className={`px-8 inline-block ${bannerTextSizeClass(storeSettings.promoBannerTextSize)}`} aria-hidden="true">
+                      {storeSettings.promoBannerText} <span className="text-white/40 ml-1.5">✦</span>
+                    </span>
+                    <span className={`px-8 inline-block ${bannerTextSizeClass(storeSettings.promoBannerTextSize)}`} aria-hidden="true">
+                      {storeSettings.promoBannerText} <span className="text-white/40 ml-1.5">✦</span>
+                    </span>
+                    <span className={`px-8 inline-block ${bannerTextSizeClass(storeSettings.promoBannerTextSize)}`} aria-hidden="true">
+                      {storeSettings.promoBannerText} <span className="text-white/40 ml-1.5">✦</span>
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <span className={`relative z-10 flex items-center gap-1 ${bannerTextSizeClass(storeSettings.promoBannerTextSize)}`}>
+                  {storeSettings.promoBannerText}
+                  <span className="inline-block transition-transform duration-300 group-hover:translate-x-1">→</span>
+                </span>
+              )}
+            </div>
+          </a>
+        ) : (
+          <div 
+            id="promo-announcement-banner"
+            className={`w-full py-2 shadow-xs animate-fade-in relative overflow-hidden group hover-pause select-none border-b border-indigo-500/10 ${
+              storeSettings.promoBannerScrollEnabled ? 'flex items-center' : 'flex items-center justify-center gap-2 text-center px-4'
+            }`}
+            style={{
+              backgroundColor: storeSettings.promoBannerBgColor || '#4f46e5',
+              color: storeSettings.promoBannerTextColor || '#ffffff'
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out pointer-events-none z-20" />
+            {storeSettings.promoBannerScrollEnabled ? (
+              <div className="w-full overflow-hidden relative z-10 py-0.5">
+                <div className={getScrollClass()}>
+                  <span className={`px-8 inline-block ${bannerTextSizeClass(storeSettings.promoBannerTextSize)}`}>
+                    {storeSettings.promoBannerText} <span className="text-white/40 ml-1.5">✦</span>
+                  </span>
+                  <span className={`px-8 inline-block ${bannerTextSizeClass(storeSettings.promoBannerTextSize)}`} aria-hidden="true">
+                    {storeSettings.promoBannerText} <span className="text-white/40 ml-1.5">✦</span>
+                  </span>
+                  <span className={`px-8 inline-block ${bannerTextSizeClass(storeSettings.promoBannerTextSize)}`} aria-hidden="true">
+                    {storeSettings.promoBannerText} <span className="text-white/40 ml-1.5">✦</span>
+                  </span>
+                  <span className={`px-8 inline-block ${bannerTextSizeClass(storeSettings.promoBannerTextSize)}`} aria-hidden="true">
+                    {storeSettings.promoBannerText} <span className="text-white/40 ml-1.5">✦</span>
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <span className={`relative z-10 ${bannerTextSizeClass(storeSettings.promoBannerTextSize)}`}>{storeSettings.promoBannerText}</span>
+            )}
+          </div>
+        )
+      )}
+
+      {/* Promotional Graphic Image Banner */}
+      {storeSettings?.promoBannerImageActive && storeSettings?.promoBannerImageUrl && (
+        storeSettings.promoBannerLinkUrl ? (
+          <a 
+            href={storeSettings.promoBannerLinkUrl}
+            id="promo-graphic-banner-link"
+            className="block w-full border-b border-slate-100"
+          >
+            <div 
+              id="promo-graphic-banner"
+              className="w-full h-12 md:h-16 relative overflow-hidden shadow-xs animate-fade-in group cursor-pointer"
+            >
+              <img 
+                src={storeSettings.promoBannerImageUrl} 
+                alt="Promotion Banner" 
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.01]"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&q=80&w=1200';
+                }}
+              />
+              {/* Overlay text if provided and overlay option is desired */}
+              {storeSettings.promoBannerText && storeSettings.promoBannerImageOverlayTextActive !== false && (
+                <div 
+                  className="absolute inset-0 backdrop-blur-[0.5px] flex items-center justify-center px-4"
+                  style={{
+                    backgroundColor: `rgba(15, 23, 42, ${(storeSettings.promoBannerOverlayOpacity !== undefined ? storeSettings.promoBannerOverlayOpacity : 40) / 100})`
+                  }}
+                >
+                  <span 
+                    className={`font-black tracking-wide drop-shadow-md relative z-10 flex items-center gap-1.5 ${bannerTextSizeClass(storeSettings.promoBannerTextSize)}`}
+                    style={{ color: storeSettings.promoBannerTextColor || '#ffffff' }}
+                  >
+                    {storeSettings.promoBannerText}
+                    <span className="inline-block transition-transform duration-300 group-hover:translate-x-1">→</span>
+                  </span>
+                </div>
+              )}
+              {/* Decorative glowing light sweep */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
+            </div>
+          </a>
+        ) : (
+          <div 
+            id="promo-graphic-banner"
+            className="w-full h-12 md:h-16 relative overflow-hidden shadow-xs animate-fade-in group border-b border-slate-100"
+          >
+            <img 
+              src={storeSettings.promoBannerImageUrl} 
+              alt="Promotion Banner" 
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&q=80&w=1200';
+              }}
+            />
+            {storeSettings.promoBannerText && storeSettings.promoBannerImageOverlayTextActive !== false && (
+              <div 
+                className="absolute inset-0 flex items-center justify-center px-4"
+                style={{
+                  backgroundColor: `rgba(15, 23, 42, ${(storeSettings.promoBannerOverlayOpacity !== undefined ? storeSettings.promoBannerOverlayOpacity : 40) / 100})`
+                }}
+              >
+                <span 
+                  className={`font-black tracking-wide drop-shadow-md relative z-10 ${bannerTextSizeClass(storeSettings.promoBannerTextSize)}`}
+                  style={{ color: storeSettings.promoBannerTextColor || '#ffffff' }}
+                >
+                  {storeSettings.promoBannerText}
+                </span>
+              </div>
+            )}
+          </div>
+        )
+      )}
+    </>
   );
 }

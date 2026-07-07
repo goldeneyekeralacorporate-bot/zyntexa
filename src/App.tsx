@@ -7,37 +7,128 @@ import {
   deleteProduct, 
   fetchAllOrders, 
   updateOrderStatus,
+  clearAllOrders,
   subscribeProducts,
-  subscribeOrders
+  subscribeOrders,
+  subscribeUserOrders,
+  subscribeSettings,
+  updateStoreSettings,
+  resetStoreDatabase,
+  signOutUser,
+  subscribeAuth,
+  getUserProfile
 } from './lib/firebase';
-import { Product, Order, UserProfile, CartItem } from './types';
+import { Product, Order, UserProfile, CartItem, StoreSettings } from './types';
 import Navbar from './components/Navbar';
 import ProductCard from './components/ProductCard';
 import CartDrawer from './components/CartDrawer';
 import AuthModal from './components/AuthModal';
 import CheckoutPage from './components/CheckoutPage';
 import AdminPanel from './components/AdminPanel';
-import GeminiAgent from './components/GeminiAgent';
+import MyOrdersModal from './components/MyOrdersModal';
+import GmailSupportModal from './components/GmailSupportModal';
+import ProductDetailsPage from './components/ProductDetailsPage';
 import { 
   Sparkles, ShieldCheck, Heart, Truck, RefreshCw, ShoppingBag, 
-  TrendingUp, CreditCard, ExternalLink, HelpCircle 
+  TrendingUp, CreditCard, ExternalLink, HelpCircle, MapPin, LogOut, User, Search, ShoppingCart, MessageSquare
 } from 'lucide-react';
 
 const CATEGORIES = ['All', 'Apparel', 'Watches', 'Electronics', 'Accessories', 'Home & Decor', 'Footwear'];
 
+const INDIAN_CITIES_MOCK = [
+  { city: "Bengaluru", state: "Karnataka", pincode: "560001", latitude: 12.9716, longitude: 77.5946 },
+  { city: "Mumbai", state: "Maharashtra", pincode: "400001", latitude: 18.9220, longitude: 72.8347 },
+  { city: "New Delhi", state: "Delhi", pincode: "110001", latitude: 28.6139, longitude: 77.2090 },
+  { city: "Chennai", state: "Tamil Nadu", pincode: "600001", latitude: 13.0827, longitude: 80.2707 },
+  { city: "Hyderabad", state: "Telangana", pincode: "500001", latitude: 17.3850, longitude: 78.4867 }
+];
+
 export default function App() {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    try {
+      const saved = localStorage.getItem('zyntexa_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      console.error("Error reading zyntexa_user from localStorage:", e);
+      return null;
+    }
+  });
+  const [products, setProductsState] = useState<Product[]>([]);
+  const [orders, setOrdersState] = useState<Order[]>([]);
+
+  const setProducts = (value: Product[] | ((prev: Product[]) => Product[])) => {
+    setProductsState((prev) => {
+      const next = typeof value === 'function' ? value(prev) : value;
+      const seen = new Set<string>();
+      return next.filter((p) => {
+        if (!p || !p.id) return false;
+        if (seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
+      });
+    });
+  };
+
+  const setOrders = (value: Order[] | ((prev: Order[]) => Order[])) => {
+    setOrdersState((prev) => {
+      const next = typeof value === 'function' ? value(prev) : value;
+      const seen = new Set<string>();
+      return next.filter((o) => {
+        if (!o || !o.id) return false;
+        if (seen.has(o.id)) return false;
+        seen.add(o.id);
+        return true;
+      });
+    });
+  };
   const [cart, setCart] = useState<CartItem[]>([]);
   
-  // Navigation & UI States
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [isAdminMode, setIsAdminMode] = useState(false);
+  const [isAdminMode, setIsAdminMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('zyntexa_user');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.email?.toLowerCase().trim() === 'goldeneyekeralacorporate@gmail.com' && parsed?.role === 'admin';
+      }
+    } catch (e) {}
+    return false;
+  });
   const [isCheckoutActive, setIsCheckoutActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+
+  // Global Theme Mode State (Light/Dark)
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('zyntexa_theme');
+      if (saved) {
+        return saved === 'dark';
+      }
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } catch (e) {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (isDarkMode) {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('zyntexa_theme', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('zyntexa_theme', 'light');
+      }
+    } catch (e) {
+      console.error('Error applying theme:', e);
+    }
+  }, [isDarkMode]);
+
+  const handleToggleDarkMode = () => {
+    setIsDarkMode((prev) => !prev);
+  };
   
   // Pricing states captured at checkout transition
   const [checkoutTotals, setCheckoutTotals] = useState({
@@ -50,14 +141,36 @@ export default function App() {
 
   // Location State
   const [detectedLocation, setDetectedLocation] = useState<{ city: string; state: string; pincode: string; latitude?: number; longitude?: number } | null>(null);
+
+  // Dynamic Tax and Delivery Settings State
+  const [storeSettings, setStoreSettings] = useState<StoreSettings>({
+    cgstPercent: 9,
+    sgstPercent: 9,
+    deliveryCharge: 150,
+    freeShippingThreshold: 4999
+  });
   
   const [loading, setLoading] = useState(true);
+  const [isOrdersOpen, setIsOrdersOpen] = useState(false);
+  const [isGmailOpen, setIsGmailOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  // WebSocket Integration for real-time presence and network-wide event broadcasts
-  const [wsConnected, setWsConnected] = useState(false);
-  const [activeUserCount, setActiveUserCount] = useState(1);
+  // Strict check that ONLY goldeneyekeralacorporate@gmail.com can access the admin panel
+  const isUserAdmin = user?.email?.toLowerCase().trim() === 'goldeneyekeralacorporate@gmail.com';
+
+  const userRef = useRef<UserProfile | null>(null);
+  const ordersRef = useRef<Order[]>([]);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  useEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
+
+  // Notification & Event Broadcast system (Real-time updates are driven automatically via Firestore subscriptions)
   const [liveNotifications, setLiveNotifications] = useState<{ id: string; message: string; type: 'order' | 'product' | 'system' | 'presence' }[]>([]);
-  const wsRef = useRef<WebSocket | null>(null);
 
   const addNotification = (message: string, type: 'order' | 'product' | 'system' | 'presence') => {
     const id = `notif_${Date.now()}_${Math.random()}`;
@@ -68,82 +181,19 @@ export default function App() {
   };
 
   const broadcastWsEvent = (type: string, payload: any) => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: "BROADCAST",
-        payload: { type, ...payload }
-      }));
+    // Quietly let Firestore handles sync; show local notifications immediately to the user
+    if (type === "ORDER_PLACED") {
+      addNotification(`📦 Order placed successfully! Total: ₹${payload.total || 0}`, "order");
+    } else if (type === "PRODUCT_UPDATED") {
+      if (payload.field === "deletion") {
+        addNotification(`🗑️ Product "${payload.name}" deleted from catalog.`, "product");
+      } else {
+        addNotification(`🏷️ Product "${payload.name}" updated successfully.`, "product");
+      }
+    } else if (type === "ORDER_STATUS_CHANGED") {
+      addNotification(`🚚 Order status changed to "${payload.status}".`, "order");
     }
   };
-
-  useEffect(() => {
-    let socket: WebSocket;
-    let reconnectTimeout: any;
-
-    function connect() {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
-      console.log("Connecting to Zyntexa Live WebSocket:", wsUrl);
-
-      socket = new WebSocket(wsUrl);
-      wsRef.current = socket;
-
-      socket.onopen = () => {
-        console.log("Zyntexa Live WebSocket Connected");
-        setWsConnected(true);
-        addNotification("Connected to Zyntexa Live Network!", "system");
-      };
-
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log("WebSocket client received:", data);
-
-          if (data.type === "WELCOME") {
-            console.log(data.message);
-          } else if (data.type === "PRESENCE_CHANGE") {
-            setActiveUserCount(data.count);
-          } else if (data.type === "ORDER_PLACED") {
-            addNotification(`📦 New order placed for ₹${data.total}!`, "order");
-          } else if (data.type === "PRODUCT_UPDATED") {
-            addNotification(`🏷️ Product "${data.name}" has been updated!`, "product");
-          } else if (data.type === "ORDER_STATUS_CHANGED") {
-            addNotification(`🚚 Order #${data.orderId.slice(0, 6)}... status changed to "${data.status}"`, "order");
-          } else {
-            if (data.message) {
-              addNotification(data.message, "system");
-            }
-          }
-        } catch (e) {
-          console.error("Failed to parse WebSocket message:", e);
-        }
-      };
-
-      socket.onclose = () => {
-        console.log("Zyntexa Live WebSocket Disconnected");
-        setWsConnected(false);
-        reconnectTimeout = setTimeout(() => {
-          connect();
-        }, 5000);
-      };
-
-      socket.onerror = (err) => {
-        console.log("WebSocket client connection state changed or disconnected:", err);
-        socket.close();
-      };
-    }
-
-    connect();
-
-    return () => {
-      if (socket) {
-        socket.close();
-      }
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
-    };
-  }, []);
 
   // Handle Cashfree payment return verification on mount
   useEffect(() => {
@@ -204,31 +254,97 @@ export default function App() {
     };
   }, []);
 
-  // Sync orders with real-time listener when user is admin or when entering Admin mode
+  // Sync Firebase authentication with local state and Firestore database profile
+  useEffect(() => {
+    const unsubscribe = subscribeAuth(async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const profile = await getUserProfile(firebaseUser.uid);
+          if (profile) {
+            setUser(profile);
+            localStorage.setItem('zyntexa_user', JSON.stringify(profile));
+          }
+        } catch (err) {
+          console.error("Error refreshing profile from Firestore:", err);
+        }
+      } else {
+        // Only clear if the saved user was NOT a demo/fallback user
+        const saved = localStorage.getItem('zyntexa_user');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.uid && !parsed.uid.startsWith('demo_')) {
+              setUser(null);
+              localStorage.removeItem('zyntexa_user');
+              setIsAdminMode(false);
+              setIsCheckoutActive(false);
+            }
+          } catch (e) {}
+        }
+      }
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // Sync checkout tax/delivery settings with real-time listener
+  useEffect(() => {
+    const unsubscribe = subscribeSettings(
+      (settings) => {
+        setStoreSettings(settings);
+      },
+      (err) => {
+        console.error("Real-time settings subscription failed:", err);
+      }
+    );
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // Sync orders with real-time listener:
+  // - Admin sees ALL orders
+  // - Customer sees only THEIR own orders
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
-    if (user?.role === 'admin' || isAdminMode) {
-      unsubscribe = subscribeOrders(
-        (liveOrders) => {
-          setOrders(liveOrders);
-        },
-        (err) => {
-          console.error("Real-time orders subscription failed:", err);
-        }
-      );
+    
+    if (user) {
+      if (isUserAdmin && isAdminMode) {
+        unsubscribe = subscribeOrders(
+          (liveOrders) => {
+            setOrders(liveOrders);
+          },
+          (err) => {
+            console.error("Real-time admin orders subscription failed:", err);
+          }
+        );
+      } else {
+        unsubscribe = subscribeUserOrders(
+          user.uid,
+          (userOrders) => {
+            setOrders(userOrders);
+          },
+          (err) => {
+            console.error("Real-time customer orders subscription failed:", err);
+          }
+        );
+      }
+    } else {
+      setOrders([]);
     }
 
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [user, isAdminMode]);
+  }, [user, isAdminMode, isUserAdmin]);
 
   // Synchronize products/orders manually as fallback
   const handleRefreshData = async () => {
     try {
       const liveProds = await fetchProducts();
       setProducts(liveProds);
-      if (user?.role === 'admin' || isAdminMode) {
+      if (isUserAdmin && isAdminMode) {
         const liveOrders = await fetchAllOrders();
         setOrders(liveOrders);
       }
@@ -239,30 +355,35 @@ export default function App() {
 
   const handleLoginSuccess = (profile: UserProfile) => {
     setUser(profile);
+    localStorage.setItem('zyntexa_user', JSON.stringify(profile));
     // If the profile is developer email, grant instant admin
-    if (profile.role === 'admin') {
+    if (profile.email?.toLowerCase().trim() === 'goldeneyekeralacorporate@gmail.com' && profile.role === 'admin') {
       setIsAdminMode(true);
+    } else {
+      setIsAdminMode(false);
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setUser(null);
+    localStorage.removeItem('zyntexa_user');
     setIsAdminMode(false);
     setIsCheckoutActive(false);
+    await signOutUser();
   };
 
   // Cart operations
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = (product: Product, quantity: number = 1) => {
     setCart((prevCart) => {
       const existing = prevCart.find((item) => item.product.id === product.id);
       if (existing) {
         // Enforce maximum stock bounds
-        const newQty = Math.min(existing.quantity + 1, product.stock);
+        const newQty = Math.min(existing.quantity + quantity, product.stock);
         return prevCart.map((item) =>
           item.product.id === product.id ? { ...item, quantity: newQty } : item
         );
       }
-      return [...prevCart, { product, quantity: 1 }];
+      return [...prevCart, { product, quantity: Math.min(quantity, product.stock) }];
     });
   };
 
@@ -357,6 +478,31 @@ export default function App() {
     broadcastWsEvent("ORDER_STATUS_CHANGED", { orderId, status });
   };
 
+  const handleAdminClearAllOrders = async () => {
+    await clearAllOrders();
+    setOrders([]);
+    broadcastWsEvent("ORDER_STATUS_CHANGED", { orderId: "all", status: "cancelled" });
+  };
+
+  const handleAdminUpdateStoreSettings = async (newSettings: StoreSettings) => {
+    await updateStoreSettings(newSettings);
+    addNotification("⚙️ Checkout, Tax & Shipping settings updated!", "system");
+  };
+
+  const handleAdminResetDatabase = async () => {
+    try {
+      setLoading(true);
+      await resetStoreDatabase();
+      addNotification("🔄 Webapp database successfully reset to standard factory defaults!", "system");
+      await handleRefreshData();
+    } catch (err) {
+      console.error("Failed to reset database:", err);
+      addNotification("❌ Error resetting database.", "system");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Filter products by category & search query
   const filteredProducts = products.filter((p) => {
     const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
@@ -376,12 +522,23 @@ export default function App() {
         onOpenCart={() => setIsCartOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
         onLogout={handleLogout}
-        onSearchChange={setSearchQuery}
-        isAdminMode={isAdminMode}
-        onToggleAdminMode={() => setIsAdminMode(!isAdminMode)}
+        onSearchChange={(q) => { setSearchQuery(q); if (q) setSelectedProduct(null); }}
+        isAdminMode={isAdminMode && isUserAdmin}
+        onToggleAdminMode={() => {
+          if (isUserAdmin) {
+            setIsAdminMode(!isAdminMode);
+          }
+        }}
         detectedLocation={detectedLocation}
         onLocationDetected={(loc) => setDetectedLocation(loc)}
         onLoginSuccess={handleLoginSuccess}
+        onOpenOrders={() => setIsOrdersOpen(true)}
+        ordersCount={user ? orders.filter(o => o.userId === user.uid).length : 0}
+        onOpenGmailComms={() => setIsGmailOpen(true)}
+        onHomeClick={() => setSelectedProduct(null)}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={handleToggleDarkMode}
+        storeSettings={storeSettings}
       />
 
       {/* Main Content Area */}
@@ -391,7 +548,7 @@ export default function App() {
             <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin" />
             <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Syncing with Firestore...</p>
           </div>
-        ) : isAdminMode ? (
+        ) : (isAdminMode && isUserAdmin) ? (
           /* ADMIN PANEL PORTAL */
           <AdminPanel
             products={products}
@@ -401,6 +558,12 @@ export default function App() {
             onUpdateProduct={handleAdminUpdateProduct}
             onDeleteProduct={handleAdminDeleteProduct}
             onUpdateOrderStatus={handleAdminUpdateOrderStatus}
+            onClearAllOrders={handleAdminClearAllOrders}
+            settings={storeSettings}
+            onUpdateSettings={handleAdminUpdateStoreSettings}
+            currentUser={user}
+            onLoginSuccess={handleLoginSuccess}
+            onResetDatabase={handleAdminResetDatabase}
           />
         ) : isCheckoutActive ? (
           /* CHECKOUT FUNNEL STREAM */
@@ -413,8 +576,21 @@ export default function App() {
             total={checkoutTotals.total}
             promoApplied={checkoutTotals.promoApplied}
             detectedLocation={detectedLocation}
-            onBack={() => setIsCheckoutActive(false)}
+            onBack={() => {
+              setIsCheckoutActive(false);
+              setIsCartOpen(true);
+            }}
             onOrderSuccess={handleOrderSuccess}
+          />
+        ) : selectedProduct ? (
+          /* DETAILED PRODUCT PAGE VIEW */
+          <ProductDetailsPage
+            product={selectedProduct}
+            allProducts={products}
+            onBack={() => setSelectedProduct(null)}
+            onAddToCart={handleAddToCart}
+            detectedLocation={detectedLocation}
+            onSelectProduct={setSelectedProduct}
           />
         ) : (
           /* CUSTOMER CATALOG SHOPPING VIEW */
@@ -524,6 +700,7 @@ export default function App() {
                     isAdmin={user?.role === 'admin'}
                     onAddToCart={handleAddToCart}
                     onUpdatePrice={handleAdminUpdatePrice}
+                    onViewDetails={setSelectedProduct}
                   />
                 ))
               )}
@@ -540,6 +717,7 @@ export default function App() {
         onUpdateQuantity={handleUpdateCartQuantity}
         onRemoveItem={handleRemoveCartItem}
         onProceedToCheckout={handleProceedToCheckout}
+        settings={storeSettings}
       />
 
       <AuthModal
@@ -549,11 +727,18 @@ export default function App() {
         userEmail="goldeneyekeralacorporate@gmail.com"
       />
 
-      {/* Intelligent Gemini Real-Time Google Search Agent & Catalog Modder */}
-      <GeminiAgent
-        products={products}
-        isAdmin={isAdminMode || user?.role === 'admin'}
-        onUpdateProduct={handleAdminUpdateProduct}
+      <MyOrdersModal
+        isOpen={isOrdersOpen}
+        onClose={() => setIsOrdersOpen(false)}
+        orders={orders}
+      />
+
+      <GmailSupportModal
+        isOpen={isGmailOpen}
+        onClose={() => setIsGmailOpen(false)}
+        currentUser={user}
+        orders={orders}
+        onLoginSuccess={handleLoginSuccess}
       />
 
       {/* Elegant minimalist Footer */}
@@ -570,11 +755,6 @@ export default function App() {
 
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-[10px] text-slate-500">
             <p>© {new Date().getFullYear()} Zyntexa Ltd. All India shipping services simulated. Powered by DeepMind.</p>
-            <div className="flex items-center gap-4">
-              <span>Developer Workspace</span>
-              <span>•</span>
-              <span>Firestore Active</span>
-            </div>
           </div>
         </div>
       </footer>

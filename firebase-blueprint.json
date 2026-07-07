@@ -52,6 +52,18 @@
         "createdAt": { "type": "string" }
       },
       "required": ["uid", "name", "role"]
+    },
+    "StoreSettings": {
+      "title": "StoreSettings",
+      "description": "Global store checkout configurations for tax and delivery fees.",
+      "type": "object",
+      "properties": {
+        "cgstPercent": { "type": "number" },
+        "sgstPercent": { "type": "number" },
+        "deliveryCharge": { "type": "number" },
+        "freeShippingThreshold": { "type": "number" }
+      },
+      "required": ["cgstPercent", "sgstPercent", "deliveryCharge", "freeShippingThreshold"]
     }
   },
   "firestore": {
@@ -66,6 +78,10 @@
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/UserProfile" },
       "description": "Customer and administrator user profiles"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/StoreSettings" },
+      "description": "Global checkout settings including tax percentages and delivery fees"
     }
   }
 }

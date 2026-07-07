@@ -15,5 +15,10 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if true;
     }
+
+    // Collection: Settings - Public read/write to support checkout tax/shipping and admin configuration
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
   }
 }
